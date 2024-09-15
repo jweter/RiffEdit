@@ -1,5 +1,53 @@
-#background
-{
-    opacity:0.4;
-    filter:alpha(opacity=40); /* For IE8 and earlier */
+/* Styling for the preformatted guitar tab output */
+pre {
+    font-family: monospace;  /* Ensures uniform width for each character */
+    white-space: pre-wrap;   /* Preserves spaces and line breaks */
+    padding: 10px;
+    border: 1px solid #ddd;  /* Light border around the output */
+    background-color: #f9f9f9; /* Light background for readability */
+    overflow-x: auto;        /* Adds horizontal scroll for long lines */
+    max-width: 100%;         /* Ensures it doesn’t exceed the width of the page */
+}
+
+/* Style for the form and textarea */
+textarea {
+    width: 100%;             /* Makes the textarea span the full width */
+    height: 200px;           /* Sets a fixed height for the input box */
+}
+
+select {
+    margin: 5px;             /* Adds spacing between dropdowns */
+    padding: 5px;            /* Adds some padding inside the dropdowns */
+}
+
+input[type="submit"] {
+    padding: 10px 15px;      /* Adds padding for the submit button */
+    background-color: #4CAF50; /* Button color */
+    color: white;            /* Text color */
+    border: none;            /* Removes borders */
+    cursor: pointer;         /* Shows pointer cursor on hover */
+}
+
+input[type="submit"]:hover {
+    background-color: #45a049; /* Changes button color on hover */
+}
+
+/* Style the form */
+form {
+    margin-top: 20px;        /* Adds some space above the form */
+}
+/* Styling for the "New Riff" button */
+a.btn {
+    display: inline-block;
+    padding: 10px 15px;
+    background-color: #007BFF;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 20px;
+    cursor: pointer;
+}
+
+a.btn:hover {
+    background-color: #0056b3;
 }

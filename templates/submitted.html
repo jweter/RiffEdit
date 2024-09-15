@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiffEdit - Submission</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/stylesheet.css') }}">
+    <script>
+        function saveToFile() {
+            const output = document.getElementById('output_box').innerText;
+            const filename = prompt('Enter a name for your riff:', 'my_riff.txt');
+            if (filename) {
+                const blob = new Blob([output], { type: 'text/plain' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>RiffEdit - Submission</h1>
+
+    <!-- Display the guitar tab output -->
+    <h2>Guitar Tab</h2>
+    <pre id="output_box">{{ output.split('\n\nBass Tab (4-string):\n')[0] }}</pre>
+
+    <!-- If a bass riff was generated, display the bass tab -->
+    {% if instrument == 'bass_4_string' or instrument == 'bass_5_string' %}
+        <h2>Bass Tab</h2>
+        <pre>{{ output.split('\n\nBass Tab (4-string):\n')[-1] }}</pre>
+    {% endif %}
+
+    <!-- Button to save the tab to a text file -->
+    <button onclick="saveToFile()">Save Tab as .txt</button>
+
+    <!-- Form to play the generated MIDI file -->
+    <form method="POST" action="/play_midi">
+        <input type="hidden" name="guitar_tab" value="{{ song }}">
+        <input type="hidden" name="instrument" value="{{ instrument }}">
+        <button type="submit">Play MIDI</button>
+    </form>
+
+    <!-- Form to allow another submission with the previous values retained -->
+    <form method="POST" action="/submit">
+        <h3>Modify Your Input</h3>
+
+        <textarea name="guitar_tab" rows="10" cols="80">{{ song }}</textarea>
+
+        <label for="root">Root Note:</label>
+        <select name="root" id="root">
+            <option value="af" {% if root == 'af' %}selected{% endif %}>A flat/G sharp</option>
+            <option value="a" {% if root == 'a' %}selected{% endif %}>A</option>
+            <option value="bf" {% if root == 'bf' %}selected{% endif %}>B flat/A sharp</option>
+            <option value="b" {% if root == 'b' %}selected{% endif %}>B</option>
+            <option value="c" {% if root == 'c' %}selected{% endif %}>C</option>
+            <option value="df" {% if root == 'df' %}selected{% endif %}>D flat/C sharp</option>
+            <option value="d" {% if root == 'd' %}selected{% endif %}>D</option>
+            <option value="ef" {% if root == 'ef' %}selected{% endif %}>E flat/D sharp</option>
+            <option value="e" {% if root == 'e' %}selected{% endif %}>E</option>
+            <option value="f" {% if root == 'f' %}selected{% endif %}>F</option>
+            <option value="gf" {% if root == 'gf' %}selected{% endif %}>G flat/F sharp</option>
+            <option value="g" {% if root == 'g' %}selected{% endif %}>G</option>
+        </select>
+
+        <label for="scale">Scale:</label>
+        <select name="scale" id="scale">
+            <option value="major" {% if scale == 'major' %}selected{% endif %}>Major</option>
+            <option value="minor" {% if scale == 'minor' %}selected{% endif %}>Minor</option>
+            <option value="harmonic" {% if scale == 'harmonic' %}selected{% endif %}>Harmonic Minor</option>
+            <option value="pentatonic" {% if scale == 'pentatonic' %}selected{% endif %}>Pentatonic</option>
+            <option value="dorian" {% if scale == 'dorian' %}selected{% endif %}>Dorian</option>
+            <option value="mixolydian" {% if scale == 'mixolydian' %}selected{% endif %}>Mixolydian</option>
+        </select>
+
+        <label for="options">Options:</label>
+        <select name="options" id="options">
+            <option value="ck" {% if option == 'ck' %}selected{% endif %}>Change Key (ck)</option>
+            <option value="ckr" {% if option == 'ckr' %}selected{% endif %}>Change Key with Randomness (ckr)</option>
+        </select>
+
+        <label for="instrument">Instrument:</label>
+        <select name="instrument" id="instrument">
+            <option value="guitar" {% if instrument == 'guitar' %}selected{% endif %}>Guitar</option>
+            <option value="bass_4_string" {% if instrument == 'bass_4_string' %}selected{% endif %}>Bass (4 String)</option>
+            <option value="bass_5_string" {% if instrument == 'bass_5_string' %}selected{% endif %}>Bass (5 String)</option>
+        </select>
+
+        <label for="tuning">Tuning:</label>
+        <select name="tuning" id="tuning">
+            <option value="standard" {% if tuning == 'standard' %}selected{% endif %}>Standard</option>
+            <option value="drop_d" {% if tuning == 'drop_d' %}selected{% endif %}>Drop D</option>
+            <option value="half_step_down" {% if tuning == 'half_step_down' %}selected{% endif %}>Half Step Down</option>
+        </select>
+
+        <input type="submit" value="Submit">
+    </form>
+
+    <br>
+
+    <!-- Button to start over with a new riff -->
+    <a href="/" class="btn">New Riff</a>
+</body>
+</html>

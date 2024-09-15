@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiffEdit - Play MIDI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/stylesheet.css') }}">
+</head>
+<body>
+    <h1>RiffEdit - Play Generated Audio</h1>
+
+    <!-- Audio playback for the WAV file -->
+    <h2>Generated Audio Playback</h2>
+    <audio controls>
+        <source src="{{ url_for('static', filename=wav_filename) }}" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
+
+    <br>
+
+    <!-- Button to download the MIDI file -->
+    <form method="POST" action="/download_midi">
+        <input type="hidden" name="guitar_tab" value="{{ request.form['guitar_tab'] }}">
+        <input type="hidden" name="instrument" value="{{ request.form['instrument'] }}">
+        <button type="submit">Download MIDI</button>
+    </form>
+
+    <!-- Button to go back and generate a new riff -->
+    <a href="/" class="btn">New Riff</a>
+</body>
+</html>
