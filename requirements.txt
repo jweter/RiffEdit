@@ -2,6 +2,6 @@ Flask==2.3.2      # Flask for web framework
 Jinja2==3.1.2     # Jinja2 for template rendering
 Werkzeug==2.3.4   # Werkzeug for WSGI support
 setuptools>=58.0  # Setuptools for package management
-
+gunicorn==20.1.0
 midiutil==1.2.1   # MIDI file generation library
 pyFluidSynth==1.3.0  # FluidSynth bindings for MIDI-to-WAV conversion
