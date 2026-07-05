@@ -3,24 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RiffEdit - Play MIDI</title>
+    <title>RiffEdit - Audio Preview</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='CSS/stylesheet.css') }}">
+    <script>
+        // Legacy playback page data injected by Flask. The modern workbench uses
+        // similar event objects directly from /api/transform.
+        const noteEvents = {{ notes_json | safe }};
+        const tabLines = {{ tab_lines_json | safe }};
+        const tabText = {{ tab_text_json | safe }};
+        const selectedInstrument = "{{ instrument }}";
+
+        // Visual tab labels are highest string first, matching common tab layout.
+        const stringLabelsByInstrument = {
+            guitar: ['e', 'B', 'G', 'D', 'A', 'E'],
+            bass_4_string: ['G', 'D', 'A', 'E'],
+            bass_5_string: ['G', 'D', 'A', 'E', 'B']
+        };
+
+        // Playback/highlight state is page-local so Stop can cancel everything.
+        let highlightTimers = [];
+        let activeAudioContext = null;
+        let loopTimer = null;
+
+        // --- Timing and audio helpers -------------------------------------------
+        function midiToFrequency(midiNote) {
+            return 440 * Math.pow(2, (midiNote - 69) / 12);
+        }
+
+        function getTempoFactor() {
+            const tempoSlider = document.getElementById('tempo_slider');
+            return Number(tempoSlider ? tempoSlider.value : 120) / 120;
+        }
+
+        function getScaledTime(seconds) {
+            return seconds / getTempoFactor();
+        }
+
+        function createMasterChain(audioContext) {
+            const compressor = audioContext.createDynamicsCompressor();
+            compressor.threshold.value = -24;
+            compressor.knee.value = 18;
+            compressor.ratio.value = 3;
+            compressor.attack.value = 0.003;
+            compressor.release.value = 0.18;
+            compressor.connect(audioContext.destination);
+            return compressor;
+        }
+
+        // Fallback synthesized pluck. This page predates bundled sampled voices.
+        function createPluckedStringBuffer(audioContext, frequency, duration, isBass) {
+            const sampleRate = audioContext.sampleRate;
+            const frameCount = Math.ceil(duration * sampleRate);
+            const buffer = audioContext.createBuffer(1, frameCount, sampleRate);
+            const output = buffer.getChannelData(0);
+            const delayLength = Math.max(2, Math.floor(sampleRate / frequency));
+            const delayLine = new Float32Array(delayLength);
+            const damping = isBass ? 0.996 : 0.992;
+            const brightness = isBass ? 0.58 : 0.72;
+
+            for (let index = 0; index < delayLength; index += 1) {
+                delayLine[index] = (Math.random() * 2 - 1) * brightness;
+            }
+
+            for (let frame = 0; frame < frameCount; frame += 1) {
+                const current = delayLine[frame % delayLength];
+                const nextIndex = (frame + 1) % delayLength;
+                const averaged = (current + delayLine[nextIndex]) * 0.5 * damping;
+                delayLine[frame % delayLength] = averaged;
+                output[frame] = current;
+            }
+
+            return buffer;
+        }
+
+        // Schedule one parsed note as a plucked-string buffer through a simple filter.
+        function playPluckedString(audioContext, destination, note, startTime) {
+            const isBass = selectedInstrument.startsWith('bass');
+            const frequency = midiToFrequency(note.midi);
+            const noteStart = startTime + getScaledTime(note.time);
+            const noteLength = getScaledTime(Math.max(note.duration, isBass ? 0.9 : 0.55));
+            const noteEnd = noteStart + noteLength;
+
+            const source = audioContext.createBufferSource();
+            source.buffer = createPluckedStringBuffer(audioContext, frequency, noteLength, isBass);
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(isBass ? 1200 : 4200, noteStart);
+            filter.frequency.exponentialRampToValueAtTime(isBass ? 360 : 1600, noteEnd);
+            filter.Q.value = isBass ? 0.8 : 1.2;
+
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.0001, noteStart);
+            gain.gain.exponentialRampToValueAtTime(isBass ? 0.55 : 0.35, noteStart + 0.006);
+            gain.gain.exponentialRampToValueAtTime(isBass ? 0.18 : 0.1, noteStart + 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+
+            source.connect(filter);
+            filter.connect(gain);
+            gain.connect(destination);
+
+            source.start(noteStart);
+            source.stop(noteEnd + 0.02);
+        }
+
+        // --- Transport -----------------------------------------------------------
+        function playGeneratedRiff() {
+            if (!noteEvents.length) {
+                return;
+            }
+
+            stopPlayback();
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioContext = new AudioContext();
+            activeAudioContext = audioContext;
+            const master = createMasterChain(audioContext);
+            const startTime = audioContext.currentTime + 0.1;
+
+            noteEvents.forEach((note, index) => {
+                playPluckedString(audioContext, master, note, startTime);
+                scheduleHighlight(index, getScaledTime(note.time), getScaledTime(Math.max(note.duration, 0.22)));
+            });
+
+            if (document.getElementById('loop_toggle').checked) {
+                const lastNote = noteEvents[noteEvents.length - 1];
+                const loopDelay = getScaledTime(lastNote.time + Math.max(lastNote.duration, 0.9) + 0.6) * 1000;
+                loopTimer = window.setTimeout(playGeneratedRiff, loopDelay);
+            }
+        }
+
+        function stopPlayback() {
+            clearHighlights();
+            if (loopTimer) {
+                window.clearTimeout(loopTimer);
+                loopTimer = null;
+            }
+            if (activeAudioContext) {
+                activeAudioContext.close();
+                activeAudioContext = null;
+            }
+        }
+
+        function replayGeneratedRiff() {
+            stopPlayback();
+            playGeneratedRiff();
+        }
+
+        // --- Visual tab highlighting --------------------------------------------
+        function clearHighlights() {
+            highlightTimers.forEach((timer) => window.clearTimeout(timer));
+            highlightTimers = [];
+            document.querySelectorAll('.tab-note.active').forEach((node) => {
+                node.classList.remove('active');
+            });
+        }
+
+        function scheduleHighlight(noteIndex, startSeconds, durationSeconds) {
+            const noteElement = document.querySelector(`[data-note-index="${noteIndex}"]`);
+            if (!noteElement) {
+                return;
+            }
+
+            highlightTimers.push(window.setTimeout(() => {
+                document.querySelectorAll('.tab-note.active').forEach((node) => {
+                    node.classList.remove('active');
+                });
+                noteElement.classList.add('active');
+                noteElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }, startSeconds * 1000));
+
+            highlightTimers.push(window.setTimeout(() => {
+                noteElement.classList.remove('active');
+            }, (startSeconds + durationSeconds + 0.15) * 1000));
+        }
+
+        function getNoteAt(lineIndex, columnIndex) {
+            return noteEvents.findIndex((note) => note.line === lineIndex && note.column === columnIndex);
+        }
+
+        // Rebuild the tab as DOM spans so individual notes can be highlighted.
+        function renderTabViewer() {
+            const viewer = document.getElementById('tab_viewer');
+            if (!viewer) {
+                return;
+            }
+
+            const labels = stringLabelsByInstrument[selectedInstrument] || stringLabelsByInstrument.guitar;
+            viewer.innerHTML = '';
+
+            tabLines.forEach((line, lineIndex) => {
+                const row = document.createElement('div');
+                row.className = 'tab-line';
+
+                const label = document.createElement('span');
+                label.className = 'tab-string-label';
+                label.textContent = `${labels[lineIndex] || ''}|`;
+                row.appendChild(label);
+
+                let column = 0;
+                while (column < line.length) {
+                    const noteIndex = getNoteAt(lineIndex, column);
+
+                    if (noteIndex >= 0) {
+                        const note = noteEvents[noteIndex];
+                        const noteSpan = document.createElement('span');
+                        noteSpan.className = 'tab-note';
+                        noteSpan.dataset.noteIndex = noteIndex;
+                        noteSpan.textContent = note.fret;
+                        row.appendChild(noteSpan);
+                        column += note.fret.length;
+                    } else {
+                        const charSpan = document.createElement('span');
+                        charSpan.textContent = line[column];
+                        row.appendChild(charSpan);
+                        column += 1;
+                    }
+                }
+
+                viewer.appendChild(row);
+            });
+        }
+
+        // --- Small export helpers ------------------------------------------------
+        function copyTab() {
+            navigator.clipboard.writeText(tabText);
+        }
+
+        function downloadTab() {
+            const blob = new Blob([tabText], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'riffedit-tab.txt';
+            link.click();
+        }
+
+        function updateTempoLabel() {
+            const tempoSlider = document.getElementById('tempo_slider');
+            const tempoLabel = document.getElementById('tempo_value');
+            if (tempoSlider && tempoLabel) {
+                tempoLabel.innerText = tempoSlider.value;
+            }
+        }
+
+        // Initialize the static preview once the page controls exist.
+        window.addEventListener('DOMContentLoaded', renderTabViewer);
+        window.addEventListener('DOMContentLoaded', updateTempoLabel);
+    </script>
 </head>
 <body>
-    <h1>RiffEdit - Play Generated Audio</h1>
+    <h1>RiffEdit - Audio Preview</h1>
 
-    <!-- Audio playback for the WAV file -->
-    <h2>Generated Audio Playback</h2>
-    <audio controls>
-        <source src="{{ url_for('static', filename=wav_filename) }}" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio>
+    {# Flask shows this branch when the parser cannot find playable tab notes. #}
+    {% if error_message %}
+        <h2>Audio Playback Unavailable</h2>
+        <p>{{ error_message }}</p>
+    {% else %}
+        <h2>Generated Riff Preview</h2>
+        <p>Clean {{ 'bass' if instrument.startswith('bass') else 'guitar' }} tone</p>
+        <!-- Legacy transport controls for this separate preview page. -->
+        <div class="transport-controls">
+            <button type="button" onclick="playGeneratedRiff()">Play</button>
+            <button type="button" onclick="stopPlayback()">Stop</button>
+            <button type="button" onclick="replayGeneratedRiff()">Replay</button>
+            <label for="tempo_slider">Tempo <span id="tempo_value">120</span> BPM</label>
+            <input id="tempo_slider" type="range" min="60" max="180" value="120" step="5" oninput="updateTempoLabel()">
+            <label class="loop-control">
+                <input id="loop_toggle" type="checkbox">
+                Loop
+            </label>
+        </div>
+
+        <!-- Live tab window; JavaScript fills and highlights this element. -->
+        <div class="tab-preview">
+            <h3>Now Playing</h3>
+            <div id="tab_viewer" class="tab-viewer" aria-live="polite"></div>
+        </div>
+
+        <div class="tab-actions">
+            <button type="button" onclick="copyTab()">Copy Tab</button>
+            <button type="button" onclick="downloadTab()">Download Tab</button>
+        </div>
+    {% endif %}
 
     <br>
 
-    <!-- Button to download the MIDI file -->
+    <!-- Download uses the same server-side MIDI exporter as the workbench. -->
     <form method="POST" action="/download_midi">
-        <input type="hidden" name="guitar_tab" value="{{ request.form['guitar_tab'] }}">
+        <textarea name="guitar_tab" style="display: none;">{{ request.form['guitar_tab'] }}</textarea>
+        <textarea name="preview_tab" style="display: none;">{{ tab_text }}</textarea>
         <input type="hidden" name="instrument" value="{{ request.form['instrument'] }}">
         <button type="submit">Download MIDI</button>
     </form>

@@ -1,101 +1,969 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>RiffEdit</title>
-        <link rel="stylesheet" href="http://flip.hr/css/bootstrap.min.css">
-        <link rel="stylesheet" href="static/CSS/stylesheet.css">
-        <link href="static/bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
-        <script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.5.1.min.js"></script>
-    </head>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiffEdit</title>
+    <link rel="stylesheet" href="static/CSS/stylesheet.css">
+</head>
+<body class="workbench-page">
+    <main class="workbench">
+        <header class="workbench-header">
+            <h1>RiffEdit</h1>
+            <p>Build, transform, preview, and export guitar or bass tab ideas.</p>
+        </header>
 
-    <body style="background-image:url(static/images/sheet-music.png);">
-        <div class="container">
+        <!-- Primary workflow navigation. Each button maps to a tab-panel id. -->
+        <nav class="tabs" aria-label="RiffEdit workflow">
+            <button class="tab-button active" type="button" data-tab="input">Input</button>
+            <button class="tab-button" type="button" data-tab="transform">Transform</button>
+            <button class="tab-button" type="button" data-tab="preview">Preview</button>
+            <button class="tab-button" type="button" data-tab="export">Export</button>
+        </nav>
 
-            <div id="title">
-                <h1>Riff Edit</h1>
-                <p>Select which method you wish to use:</p>
+        <!-- Input tab: sample generation, local riff storage, and raw pasted tab. -->
+        <section id="tab-input" class="tab-panel active">
+            <div class="panel-heading">
+                <h2>Input</h2>
+                <button type="button" onclick="goToTab('transform')">Next</button>
             </div>
 
-            <form class="form-vertical" name="in_form_ation" method="POST" action="/submit">
-                <div class="controls">
+            <!-- Preset samples give users a valid tab format without needing a riff ready. -->
+            <div class="sample-controls">
+                <select id="sample_style" aria-label="Sample style" onchange="updateSampleDescription()">
+                    <option value="random">Random riff</option>
+                    <option value="doom_metal">Old-school doom metal</option>
+                    <option value="thrash_metal">Old-school thrash metal</option>
+                    <option value="classic_prog_bass">Classic prog bass</option>
+                    <option value="modern_prog_bass">Modern prog bass</option>
+                    <option value="alt_metal_guitar">Alt-metal guitar</option>
+                </select>
+                <button class="sample-button" type="button" onclick="generateSampleTab()">Sample</button>
+            </div>
+            <p id="sample_description" class="sample-description"></p>
 
-                    <div id="selectBoxes">
-                        <!-- Options for operation -->
-                        <select name="options" id="options">
-                            <option value="ck">Change key</option>
-                            <option value="ckr">Add elements of randomness</option>
-                        </select>
+            <!-- Saved riffs live in browser localStorage; there is no server account layer yet. -->
+            <div class="session-controls">
+                <input id="riff_name" type="text" placeholder="Riff name">
+                <button type="button" onclick="saveRiff()">Save</button>
+                <select id="saved_riffs" aria-label="Saved riffs"></select>
+                <button type="button" onclick="loadRiff()">Load</button>
+                <button type="button" onclick="deleteRiff()">Delete</button>
+            </div>
 
-                        <!-- Root note selection -->
-                        <select name="root" id="root">
-                            <option value="af">A flat/G sharp</option>
-                            <option value="a">A</option>
-                            <option value="bf">B flat/A sharp</option>
-                            <option value="b">B</option>
-                            <option value="c">C</option>
-                            <option value="df">D flat/C sharp</option>
-                            <option value="d">D</option>
-                            <option value="ef">E flat/D sharp</option>
-                            <option value="e">E</option>
-                            <option value="f">F</option>
-                            <option value="gf">G flat/F sharp</option>
-                            <option value="g">G</option>
-                        </select>
+            <textarea id="guitar_tab" spellcheck="false">Enter text-based guitar tablature.</textarea>
+        </section>
 
-                        <!-- Scale selection -->
-                        <select name="scale" id="scale">
-                            <option value="major">Major</option>
-                            <option value="minor">Minor</option>
-                            <option value="harmonic">Harmonic Minor</option>
-                            <option value="pentatonic">Pentatonic</option>
-                            <option value="dorian">Dorian</option>
-                            <option value="mixolydian">Mixolydian</option>
-                        </select>
+        <!-- Transform tab: musical options sent to the Flask /api/transform endpoint. -->
+        <section id="tab-transform" class="tab-panel">
+            <div class="panel-heading">
+                <h2>Transform</h2>
+                <button type="button" onclick="runTransform()">Apply</button>
+            </div>
 
-                        <!-- Instrument selection -->
-                        <select name="instrument" id="instrument">
-                            <option value="guitar">Guitar</option>
-                            <option value="bass_4_string">Bass (4 String)</option>
-                            <option value="bass_5_string">Bass (5 String)</option>
-                        </select>
+            <div class="control-grid">
+                <label>
+                    Operation
+                    <select id="options">
+                        <option value="ck">Change key</option>
+                        <option value="ckr">Add randomness</option>
+                    </select>
+                </label>
 
-                        <!-- Optional message indicating that the guitar riff will be translated to bass if a bass is selected -->
-                        <p>If you select a bass, the guitar riff will also be translated to a bass riff.</p>
+                <label>
+                    Root
+                    <select id="root">
+                        <option value="af">A flat/G sharp</option>
+                        <option value="a">A</option>
+                        <option value="bf">B flat/A sharp</option>
+                        <option value="b">B</option>
+                        <option value="c">C</option>
+                        <option value="df">D flat/C sharp</option>
+                        <option value="d">D</option>
+                        <option value="ef">E flat/D sharp</option>
+                        <option value="e">E</option>
+                        <option value="f">F</option>
+                        <option value="gf">G flat/F sharp</option>
+                        <option value="g">G</option>
+                    </select>
+                </label>
 
-                        <!-- Tuning selection -->
-                        <select name="tuning" id="tuning">
-                            <option value="standard">Standard</option>
-                            <option value="drop_d">Drop D</option>
-                            <option value="half_step_down">Half Step Down</option>
-                        </select>
+                <label>
+                    Scale
+                    <select id="scale">
+                        <option value="major">Major</option>
+                        <option value="minor" selected>Minor</option>
+                        <option value="harmonic">Harmonic Minor</option>
+                        <option value="pentatonic">Pentatonic</option>
+                        <option value="dorian">Dorian</option>
+                        <option value="mixolydian">Mixolydian</option>
+                    </select>
+                </label>
 
-                    </div>
+                <label>
+                    Instrument
+                    <select id="instrument" onchange="syncVoiceToInstrument()">
+                        <option value="guitar">Guitar</option>
+                        <option value="bass_4_string">Bass (4 String)</option>
+                        <option value="bass_5_string">Bass (5 String)</option>
+                    </select>
+                </label>
 
-                    <div class="row">
-                        <div class="span6">
-                            <h2>Input</h2>
+                <label>
+                    Tuning
+                    <select id="tuning">
+                        <option value="standard">Standard</option>
+                        <option value="drop_d">Drop D</option>
+                        <option value="half_step_down">Half Step Down</option>
+                    </select>
+                </label>
 
-                            <textarea name="guitar_tab" id="guitar_tab" class="span6" rows="25"
-                                onfocus="if (this.value==this.defaultValue) this.value = ''"
-                                onblur="if (this.value=='') this.value = this.defaultValue">Enter text-based guitar tablature.</textarea>
+                <label>
+                    Timing grid
+                    <select id="step_duration">
+                        <option value="0.5">Eighth notes</option>
+                        <option value="0.25" selected>Sixteenth notes</option>
+                        <option value="0.167">Triplet feel</option>
+                    </select>
+                </label>
 
-                            <button class="btn btn-large btn-block btn-inverse" type="submit">Execute operation &raquo;</button>
+                <label>
+                    Note length
+                    <select id="note_duration">
+                        <option value="0.12">Staccato</option>
+                        <option value="0.22" selected>Normal</option>
+                        <option value="0.42">Sustained</option>
+                    </select>
+                </label>
+            </div>
 
-                        </div>
+            <h3>Transformed Tab</h3>
+            <pre id="output_box">Apply a transformation to see output here.</pre>
+        </section>
 
-                        <div class="span6">
-                            <h2>Output</h2>
-                            <textarea name="output_box" id="output_box" class="span6" rows="25">View output here</textarea>
-                        </div>
+        <!-- Preview tab: browser audio engine, effects, transport, and live tab highlight. -->
+        <section id="tab-preview" class="tab-panel">
+            <div class="panel-heading">
+                <h2>Preview</h2>
+                <button type="button" onclick="runTransformThenPreview()">Refresh Preview</button>
+            </div>
 
-                    </div><!-- .row -->
+            <div class="transport-controls">
+                <button type="button" onclick="playGeneratedRiff()">Play</button>
+                <button type="button" onclick="stopPlayback()">Stop</button>
+                <button type="button" onclick="replayGeneratedRiff()">Replay</button>
+                <label for="tempo_slider">Tempo <span id="tempo_value">120</span> BPM</label>
+                <input id="tempo_slider" type="range" min="60" max="180" value="120" step="5" oninput="updateTempoLabel()">
+                <label class="loop-control">
+                    <input id="loop_toggle" type="checkbox">
+                    Loop
+                </label>
+            </div>
 
-                </div> <!-- .controls-->
+            <!-- Effects are applied in Web Audio after each sampled or synthesized note. -->
+            <div class="effects-panel">
+                <label>
+                    Voice
+                    <select id="voice_select">
+                        <option value="electric_guitar_clean">Clean electric guitar</option>
+                        <option value="acoustic_guitar_steel">Steel acoustic guitar</option>
+                        <option value="electric_bass_finger">Fingered bass</option>
+                        <option value="electric_bass_pick">Picked bass</option>
+                    </select>
+                </label>
+                <label>
+                    <input id="drive_enabled" type="checkbox">
+                    Drive
+                    <input id="drive_amount" type="range" min="0" max="100" value="25">
+                </label>
+                <label>
+                    Tone
+                    <input id="tone_amount" type="range" min="800" max="9000" value="5200">
+                </label>
+                <label>
+                    <input id="chorus_enabled" type="checkbox">
+                    Chorus
+                    <input id="chorus_amount" type="range" min="0" max="100" value="35">
+                </label>
+                <label>
+                    <input id="delay_enabled" type="checkbox">
+                    Delay
+                    <input id="delay_amount" type="range" min="0" max="100" value="30">
+                </label>
+            </div>
 
-            </form>
+            <p id="preview_label">Clean guitar tone</p>
+            <div id="tab_viewer" class="tab-viewer" aria-live="polite"></div>
+        </section>
 
-        </div><!-- .container -->
-    </body>
+        <!-- Export tab: copies/downloads the preview tab, plus server-generated MIDI/XML. -->
+        <section id="tab-export" class="tab-panel">
+            <div class="panel-heading">
+                <h2>Export</h2>
+                <button type="button" onclick="runTransform()">Refresh Output</button>
+            </div>
+
+            <div class="tab-actions">
+                <button type="button" onclick="copyTab()">Copy Tab</button>
+                <button type="button" onclick="downloadTab()">Download Tab</button>
+                <button type="button" onclick="downloadMidi()">Download MIDI</button>
+                <button type="button" onclick="downloadMusicXml()">Download MusicXML</button>
+            </div>
+
+            <pre id="export_box">Nothing transformed yet.</pre>
+        </section>
+    </main>
+
+    <script>
+        // --- Static configuration -------------------------------------------------
+        // Tab rows are displayed highest string first, which matches common tab text.
+        const stringLabelsByInstrument = {
+            guitar: ['e', 'B', 'G', 'D', 'A', 'E'],
+            bass_4_string: ['G', 'D', 'A', 'E'],
+            bass_5_string: ['G', 'D', 'A', 'E', 'B']
+        };
+
+        // Each sample preset stores [stringIndex, column, fret] placements into an
+        // empty text tab. stringIndex follows the visual high-to-low row order.
+        const samplePresets = {
+            random: {
+                instrument: null,
+                tuning: null,
+                description: 'Uses the currently selected instrument and tuning.',
+                placements: null
+            },
+            doom_metal: {
+                instrument: 'guitar',
+                tuning: 'drop_d',
+                description: 'Guitar in Drop D with slow, heavy power-shape movement.',
+                placements: [[5, 0, 0], [4, 0, 0], [3, 0, 2], [5, 5, 0], [4, 5, 0], [3, 5, 2], [5, 10, 3], [4, 10, 3], [3, 10, 5], [5, 16, 5], [4, 16, 5], [3, 16, 7], [5, 23, 6], [4, 23, 6], [3, 23, 8], [5, 30, 5], [4, 30, 5], [3, 30, 7], [5, 36, 3], [4, 36, 3], [3, 36, 5]]
+            },
+            thrash_metal: {
+                instrument: 'guitar',
+                tuning: 'standard',
+                description: 'Standard-tuned guitar with tight low-string chugs and quick accents.',
+                placements: [[5, 0, 0], [5, 2, 0], [5, 4, 0], [5, 6, 0], [5, 8, 3], [5, 10, 0], [5, 12, 0], [5, 14, 5], [5, 16, 0], [5, 18, 0], [5, 20, 6], [5, 22, 5], [4, 8, 5], [4, 14, 7], [4, 20, 8], [4, 26, 7], [5, 28, 0], [5, 30, 0], [5, 32, 3], [5, 34, 0]]
+            },
+            classic_prog_bass: {
+                instrument: 'bass_4_string',
+                tuning: 'standard',
+                description: '4-string bass in standard tuning with moving melodic jumps.',
+                placements: [[3, 0, 0], [3, 4, 3], [2, 7, 0], [2, 10, 2], [1, 13, 0], [2, 16, 2], [3, 20, 3], [3, 24, 5], [2, 28, 5], [1, 31, 4], [2, 34, 7], [3, 37, 5]]
+            },
+            modern_prog_bass: {
+                instrument: 'bass_4_string',
+                tuning: 'drop_d',
+                description: '4-string bass in Drop D with syncopated low-note returns.',
+                placements: [[3, 0, 0], [3, 3, 0], [2, 6, 5], [3, 8, 0], [1, 11, 7], [3, 15, 3], [2, 18, 5], [3, 21, 0], [0, 24, 7], [2, 27, 5], [3, 31, 3], [3, 35, 0]]
+            },
+            alt_metal_guitar: {
+                instrument: 'guitar',
+                tuning: 'drop_d',
+                description: 'Guitar in Drop D with chunky low shapes and suspended high accents.',
+                placements: [[5, 0, 0], [4, 0, 0], [5, 3, 0], [4, 3, 0], [5, 7, 7], [4, 7, 7], [5, 10, 6], [4, 10, 6], [2, 12, 7], [1, 14, 8], [5, 17, 0], [4, 17, 0], [5, 21, 8], [4, 21, 8], [5, 25, 7], [4, 25, 7], [3, 29, 5], [2, 32, 7], [5, 35, 0], [4, 35, 0]]
+            }
+        };
+
+        // --- Runtime state --------------------------------------------------------
+        // These values mirror the latest transform response so preview/export do not
+        // need to re-parse the UI unless the user explicitly refreshes.
+        let currentOutput = '';
+        let currentPreviewTab = '';
+        let noteEvents = [];
+        let tabLines = [];
+        let activeAudioContext = null;
+        let highlightTimers = [];
+        let loopTimer = null;
+        let sampleCache = {};
+
+        // Bundled local soundfont scripts provide browser-playable instrument samples.
+        const soundfontUrls = {
+            acoustic_guitar_steel: '/static/soundfonts/acoustic_guitar_steel-mp3.js',
+            electric_guitar_clean: '/static/soundfonts/electric_guitar_clean-mp3.js',
+            electric_bass_finger: '/static/soundfonts/electric_bass_finger-mp3.js',
+            electric_bass_pick: '/static/soundfonts/electric_bass_pick-mp3.js'
+        };
+
+        // --- Tab navigation -------------------------------------------------------
+        /** Show one workflow panel and mark its navigation button active. */
+        function goToTab(name) {
+            document.querySelectorAll('.tab-button').forEach((button) => {
+                button.classList.toggle('active', button.dataset.tab === name);
+            });
+            document.querySelectorAll('.tab-panel').forEach((panel) => {
+                panel.classList.toggle('active', panel.id === `tab-${name}`);
+            });
+        }
+
+        document.querySelectorAll('.tab-button').forEach((button) => {
+            button.addEventListener('click', () => goToTab(button.dataset.tab));
+        });
+
+        // --- Sample generation ----------------------------------------------------
+        /** Pick musically common frets for the random sample generator. */
+        function getRandomFret() {
+            const frets = [0, 2, 3, 5, 7, 8, 10, 12];
+            return String(frets[Math.floor(Math.random() * frets.length)]);
+        }
+
+        function buildEmptyTab(stringLabels, width) {
+            return stringLabels.map((label) => `${label}|${'-'.repeat(width)}|`.split(''));
+        }
+
+        /** Place a fret into the editable character grid without crossing the end bar. */
+        function placeFret(lines, stringIndex, column, fret) {
+            const fretText = String(fret);
+            const target = 2 + column;
+            if (!lines[stringIndex] || target >= lines[stringIndex].length - 1) return;
+            lines[stringIndex][target] = fretText[0];
+            if (fretText.length > 1 && target + 1 < lines[stringIndex].length - 1) {
+                lines[stringIndex][target + 1] = fretText[1];
+            }
+        }
+
+        /** Fill the input textarea with either a named preset or randomized tab. */
+        function generateSampleTab() {
+            const preset = samplePresets[document.getElementById('sample_style').value] || samplePresets.random;
+            if (preset.instrument) document.getElementById('instrument').value = preset.instrument;
+            if (preset.tuning) document.getElementById('tuning').value = preset.tuning;
+            const labels = stringLabelsByInstrument[document.getElementById('instrument').value] || stringLabelsByInstrument.guitar;
+            const lines = buildEmptyTab(labels, 40);
+            if (preset.placements) {
+                preset.placements.forEach(([stringIndex, column, fret]) => placeFret(lines, stringIndex, column, fret));
+            } else {
+                [2, 5, 8, 12, 15, 19, 23, 27, 31, 35].forEach((column) => {
+                    placeFret(lines, Math.floor(Math.random() * lines.length), column, getRandomFret());
+                });
+            }
+            document.getElementById('guitar_tab').value = lines.map((chars) => chars.join('')).join('\n');
+            syncVoiceToInstrument();
+            updateSampleDescription();
+        }
+
+        /** Keep the preset description synced with the selected sample type. */
+        function updateSampleDescription() {
+            const preset = samplePresets[document.getElementById('sample_style').value] || samplePresets.random;
+            document.getElementById('sample_description').innerText = preset.description;
+        }
+
+        /** Keep preview voice sensible when switching between guitar and bass modes. */
+        function syncVoiceToInstrument() {
+            const voiceSelect = document.getElementById('voice_select');
+            if (document.getElementById('instrument').value.startsWith('bass')) {
+                if (!voiceSelect.value.includes('bass')) voiceSelect.value = 'electric_bass_pick';
+            } else if (voiceSelect.value.includes('bass')) {
+                voiceSelect.value = 'electric_guitar_clean';
+            }
+        }
+
+        // --- Transform API --------------------------------------------------------
+        /** Send the current workbench state to Flask and cache the parsed response. */
+        async function runTransform() {
+            const response = await fetch('/api/transform', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    guitar_tab: document.getElementById('guitar_tab').value,
+                    options: document.getElementById('options').value,
+                    root: document.getElementById('root').value,
+                    scale: document.getElementById('scale').value,
+                    instrument: document.getElementById('instrument').value,
+                    tuning: document.getElementById('tuning').value
+                    ,step_duration: document.getElementById('step_duration').value
+                    ,note_duration: document.getElementById('note_duration').value
+                })
+            });
+            const result = await response.json();
+            currentOutput = result.output || '';
+            currentPreviewTab = result.preview_tab || currentOutput;
+            noteEvents = result.note_events || [];
+            tabLines = result.tab_lines || [];
+            document.getElementById('output_box').innerText = currentOutput || 'No transformed output.';
+            document.getElementById('export_box').innerText = currentPreviewTab || 'No exportable tab.';
+            document.getElementById('preview_label').innerText = `Clean ${result.instrument.startsWith('bass') ? 'bass' : 'guitar'} tone`;
+            renderTabViewer();
+            return result;
+        }
+
+        /** Refresh the transform result before moving to the preview panel. */
+        async function runTransformThenPreview() {
+            await runTransform();
+            goToTab('preview');
+        }
+
+        // --- Timing helpers -------------------------------------------------------
+        /** Convert MIDI pitch numbers to Web Audio oscillator frequencies. */
+        function midiToFrequency(midiNote) {
+            return 440 * Math.pow(2, (midiNote - 69) / 12);
+        }
+
+        function getTempoFactor() {
+            return Number(document.getElementById('tempo_slider').value) / 120;
+        }
+
+        /** Scale parser times around the default 120 BPM grid. */
+        function getScaledTime(seconds) {
+            return seconds / getTempoFactor();
+        }
+
+        // --- Audio routing and effects -------------------------------------------
+        /** Final output stage that tames loud transients before the browser speakers. */
+        function createMasterChain(audioContext) {
+            const compressor = audioContext.createDynamicsCompressor();
+            compressor.threshold.value = -24;
+            compressor.knee.value = 18;
+            compressor.ratio.value = 3;
+            compressor.attack.value = 0.003;
+            compressor.release.value = 0.18;
+            compressor.connect(audioContext.destination);
+            return compressor;
+        }
+
+        /** Read the current effect controls as normalized values for the audio rig. */
+        function getEffectSettings() {
+            return {
+                driveEnabled: document.getElementById('drive_enabled').checked,
+                driveAmount: Number(document.getElementById('drive_amount').value) / 100,
+                toneFrequency: Number(document.getElementById('tone_amount').value),
+                chorusEnabled: document.getElementById('chorus_enabled').checked,
+                chorusAmount: Number(document.getElementById('chorus_amount').value) / 100,
+                delayEnabled: document.getElementById('delay_enabled').checked,
+                delayAmount: Number(document.getElementById('delay_amount').value) / 100
+            };
+        }
+
+        /** Build a tanh waveshaper curve for the Drive effect. */
+        function makeDistortionCurve(amount) {
+            const samples = 44100;
+            const curve = new Float32Array(samples);
+            const drive = 1 + amount * 70;
+            for (let index = 0; index < samples; index += 1) {
+                const x = index * 2 / samples - 1;
+                curve[index] = Math.tanh(drive * x);
+            }
+            return curve;
+        }
+
+        /** Create the guitar/bass-style effects chain shared by all scheduled notes. */
+        function createEffectsChain(audioContext, destination) {
+            const settings = getEffectSettings();
+            const input = audioContext.createGain();
+            let current = input;
+
+            if (settings.driveEnabled && settings.driveAmount > 0) {
+                const shaper = audioContext.createWaveShaper();
+                shaper.curve = makeDistortionCurve(settings.driveAmount);
+                shaper.oversample = '4x';
+                current.connect(shaper);
+                current = shaper;
+            }
+
+            const tone = audioContext.createBiquadFilter();
+            tone.type = 'lowpass';
+            tone.frequency.value = settings.toneFrequency;
+            tone.Q.value = 0.8;
+            current.connect(tone);
+            current = tone;
+
+            if (settings.chorusEnabled && settings.chorusAmount > 0) {
+                const chorusDelay = audioContext.createDelay();
+                const chorusDepth = audioContext.createGain();
+                const chorusLfo = audioContext.createOscillator();
+                const chorusWet = audioContext.createGain();
+                const chorusDry = audioContext.createGain();
+                const chorusOut = audioContext.createGain();
+
+                chorusDelay.delayTime.value = 0.018;
+                chorusDepth.gain.value = 0.006 * settings.chorusAmount;
+                chorusLfo.frequency.value = 0.8;
+                chorusWet.gain.value = 0.35 * settings.chorusAmount;
+                chorusDry.gain.value = 1 - 0.15 * settings.chorusAmount;
+
+                chorusLfo.connect(chorusDepth);
+                chorusDepth.connect(chorusDelay.delayTime);
+                current.connect(chorusDry);
+                current.connect(chorusDelay);
+                chorusDelay.connect(chorusWet);
+                chorusDry.connect(chorusOut);
+                chorusWet.connect(chorusOut);
+                chorusLfo.start();
+                current = chorusOut;
+            }
+
+            current.connect(destination);
+
+            if (settings.delayEnabled && settings.delayAmount > 0) {
+                const delay = audioContext.createDelay();
+                const feedback = audioContext.createGain();
+                const wet = audioContext.createGain();
+                delay.delayTime.value = 0.28;
+                feedback.gain.value = 0.22 + settings.delayAmount * 0.25;
+                wet.gain.value = settings.delayAmount * 0.35;
+                input.connect(delay);
+                delay.connect(feedback);
+                feedback.connect(delay);
+                delay.connect(wet);
+                wet.connect(destination);
+            }
+
+            return input;
+        }
+
+        // --- Voice and soundfont loading -----------------------------------------
+        /** Resolve the selected voice, guarding against guitar/bass mismatches. */
+        function getVoiceName() {
+            const selectedVoice = document.getElementById('voice_select').value;
+            const isBass = document.getElementById('instrument').value.startsWith('bass');
+            if (isBass && !selectedVoice.includes('bass')) return 'electric_bass_pick';
+            if (!isBass && selectedVoice.includes('bass')) return 'electric_guitar_clean';
+            return selectedVoice;
+        }
+
+        /** Convert MIDI.js soundfont pitch keys such as C#4 or Bb2 into MIDI numbers. */
+        function normalizePitchName(name) {
+            const match = name.match(/^([A-G])([b#]?)(-?\d+)$/);
+            if (!match) return null;
+            const pitchClass = {
+                C: 0, 'C#': 1, Db: 1,
+                D: 2, 'D#': 3, Eb: 3,
+                E: 4,
+                F: 5, 'F#': 6, Gb: 6,
+                G: 7, 'G#': 8, Ab: 8,
+                A: 9, 'A#': 10, Bb: 10,
+                B: 11
+            }[`${match[1]}${match[2]}`];
+            return (Number(match[3]) + 1) * 12 + pitchClass;
+        }
+
+        /** Human-readable voice label for preview status text. */
+        function getVoiceLabel(voiceName) {
+            return {
+                acoustic_guitar_steel: 'steel acoustic guitar',
+                electric_guitar_clean: 'clean electric guitar',
+                electric_bass_finger: 'fingered bass',
+                electric_bass_pick: 'picked bass'
+            }[voiceName] || voiceName;
+        }
+
+        /** Load one bundled soundfont script once and reuse it across previews. */
+        function loadSoundfontScript(voiceName) {
+            return new Promise((resolve, reject) => {
+                const existing = document.querySelector(`script[data-soundfont="${voiceName}"]`);
+                if (existing) {
+                    if (existing.dataset.loaded === 'true') {
+                        resolve();
+                        return;
+                    }
+                    existing.addEventListener('load', resolve, { once: true });
+                    existing.addEventListener('error', reject, { once: true });
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = soundfontUrls[voiceName];
+                script.dataset.soundfont = voiceName;
+                script.onload = () => {
+                    script.dataset.loaded = 'true';
+                    resolve();
+                };
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        /** Decode base64 MP3 samples into AudioBuffers for low-latency playback. */
+        async function loadInstrumentSamples(audioContext, voiceName) {
+            if (sampleCache[voiceName]) return sampleCache[voiceName];
+
+            window.MIDI = window.MIDI || {};
+            window.MIDI.Soundfont = window.MIDI.Soundfont || {};
+            await loadSoundfontScript(voiceName);
+
+            const instrumentName = voiceName;
+            const rawSamples = window.MIDI.Soundfont[instrumentName];
+            if (!rawSamples) throw new Error(`Soundfont did not load: ${instrumentName}`);
+
+            const decodedSamples = await Promise.all(Object.entries(rawSamples).map(async ([pitchName, dataUri]) => {
+                const midi = normalizePitchName(pitchName);
+                if (midi === null) return null;
+                const base64 = dataUri.split(',')[1];
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let index = 0; index < binary.length; index += 1) {
+                    bytes[index] = binary.charCodeAt(index);
+                }
+                const buffer = await audioContext.decodeAudioData(bytes.buffer);
+                return { midi, buffer };
+            }));
+
+            sampleCache[voiceName] = decodedSamples.filter(Boolean).sort((a, b) => a.midi - b.midi);
+            return sampleCache[voiceName];
+        }
+
+        /** Choose the closest recorded sample and pitch-shift it to the target note. */
+        function findNearestSample(samples, midiNote) {
+            return samples.reduce((best, sample) => {
+                return Math.abs(sample.midi - midiNote) < Math.abs(best.midi - midiNote) ? sample : best;
+            }, samples[0]);
+        }
+
+        // --- Fallback synthesis ---------------------------------------------------
+        /** Karplus-Strong plucked-string fallback used if samples fail to load. */
+        function createPluckedStringBuffer(audioContext, frequency, duration, isBass) {
+            const sampleRate = audioContext.sampleRate;
+            const frameCount = Math.ceil(duration * sampleRate);
+            const buffer = audioContext.createBuffer(1, frameCount, sampleRate);
+            const output = buffer.getChannelData(0);
+            const delayLength = Math.max(2, Math.floor(sampleRate / frequency));
+            const delayLine = new Float32Array(delayLength);
+            const damping = isBass ? 0.996 : 0.992;
+            const brightness = isBass ? 0.58 : 0.72;
+            for (let index = 0; index < delayLength; index += 1) {
+                delayLine[index] = (Math.random() * 2 - 1) * brightness;
+            }
+            for (let frame = 0; frame < frameCount; frame += 1) {
+                const current = delayLine[frame % delayLength];
+                const nextIndex = (frame + 1) % delayLength;
+                delayLine[frame % delayLength] = (current + delayLine[nextIndex]) * 0.5 * damping;
+                output[frame] = current;
+            }
+            return buffer;
+        }
+
+        /** Render muted "x" tab notes as short filtered noise instead of pitched notes. */
+        function playMutedThunk(audioContext, destination, note, startTime) {
+            const isBass = document.getElementById('instrument').value.startsWith('bass');
+            const noteStart = startTime + getScaledTime(note.time);
+            const duration = getScaledTime(0.08);
+            const buffer = audioContext.createBuffer(1, Math.ceil(audioContext.sampleRate * duration), audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let index = 0; index < data.length; index += 1) {
+                data[index] = (Math.random() * 2 - 1) * Math.pow(1 - index / data.length, 2);
+            }
+            const source = audioContext.createBufferSource();
+            const filter = audioContext.createBiquadFilter();
+            const gain = audioContext.createGain();
+            source.buffer = buffer;
+            filter.type = 'lowpass';
+            filter.frequency.value = isBass ? 480 : 1100;
+            gain.gain.setValueAtTime(isBass ? 0.45 : 0.25, noteStart);
+            gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + duration);
+            source.connect(filter);
+            filter.connect(gain);
+            gain.connect(destination);
+            source.start(noteStart);
+            source.stop(noteStart + duration);
+        }
+
+        /** Schedule one synthesized fallback note through the selected effects rig. */
+        function playPluckedString(audioContext, destination, note, startTime) {
+            if (note.muted) {
+                playMutedThunk(audioContext, destination, note, startTime);
+                return;
+            }
+            const isBass = document.getElementById('instrument').value.startsWith('bass');
+            const noteStart = startTime + getScaledTime(note.time);
+            const noteLength = getScaledTime(Math.max(note.duration, isBass ? 1.25 : 1.05));
+            const source = audioContext.createBufferSource();
+            source.buffer = createPluckedStringBuffer(audioContext, midiToFrequency(note.midi), noteLength, isBass);
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(isBass ? 1200 : 4200, noteStart);
+            filter.frequency.exponentialRampToValueAtTime(isBass ? 360 : 1600, noteStart + noteLength);
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.0001, noteStart);
+            gain.gain.exponentialRampToValueAtTime(isBass ? 0.55 : 0.35, noteStart + 0.006);
+            gain.gain.exponentialRampToValueAtTime(isBass ? 0.18 : 0.1, noteStart + 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + noteLength);
+            source.connect(filter);
+            filter.connect(gain);
+            gain.connect(destination);
+            source.start(noteStart);
+            source.stop(noteStart + noteLength + 0.02);
+        }
+
+        // --- Sampled playback -----------------------------------------------------
+        /** Schedule one decoded instrument sample, pitch-shifted to the parsed note. */
+        function playSampledString(audioContext, destination, note, startTime, samples) {
+            if (note.muted) {
+                playMutedThunk(audioContext, destination, note, startTime);
+                return;
+            }
+            const isBass = document.getElementById('instrument').value.startsWith('bass');
+            const sample = findNearestSample(samples, note.midi);
+            const noteStart = startTime + getScaledTime(note.time);
+            const noteLength = getScaledTime(Math.max(note.duration, isBass ? 0.9 : 0.55));
+            const source = audioContext.createBufferSource();
+            const filter = audioContext.createBiquadFilter();
+            const gain = audioContext.createGain();
+
+            source.buffer = sample.buffer;
+            source.playbackRate.value = Math.pow(2, (note.midi - sample.midi) / 12);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(isBass ? 1800 : 5200, noteStart);
+            gain.gain.setValueAtTime(0.0001, noteStart);
+            gain.gain.exponentialRampToValueAtTime(isBass ? 0.78 : 0.5, noteStart + 0.004);
+            gain.gain.exponentialRampToValueAtTime(isBass ? 0.34 : 0.22, noteStart + 0.28);
+            gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + noteLength);
+
+            source.connect(filter);
+            filter.connect(gain);
+            gain.connect(destination);
+            source.start(noteStart);
+            source.stop(noteStart + noteLength + 0.08);
+        }
+
+        /** Render the current noteEvents list using samples when possible. */
+        async function playGeneratedRiff() {
+            if (!noteEvents.length) await runTransform();
+            if (!noteEvents.length) return;
+            stopPlayback();
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioContext = new AudioContext();
+            activeAudioContext = audioContext;
+            const master = createMasterChain(audioContext);
+            const rigInput = createEffectsChain(audioContext, master);
+            const startTime = audioContext.currentTime + 0.1;
+            let samples = null;
+
+            try {
+                samples = await loadInstrumentSamples(audioContext, getVoiceName());
+                document.getElementById('preview_label').innerText = `Sampled ${getVoiceLabel(getVoiceName())} tone`;
+            } catch (error) {
+                document.getElementById('preview_label').innerText = `Fallback ${getVoiceLabel(getVoiceName())} tone`;
+            }
+
+            noteEvents.forEach((note, index) => {
+                if (samples && samples.length) {
+                    playSampledString(audioContext, rigInput, note, startTime, samples);
+                } else {
+                    playPluckedString(audioContext, rigInput, note, startTime);
+                }
+                scheduleHighlight(index, getScaledTime(note.time), getScaledTime(Math.max(note.duration, 0.22)));
+            });
+            if (document.getElementById('loop_toggle').checked) {
+                const lastNote = noteEvents[noteEvents.length - 1];
+                loopTimer = window.setTimeout(playGeneratedRiff, getScaledTime(lastNote.time + Math.max(lastNote.duration, 0.9) + 0.6) * 1000);
+            }
+        }
+
+        /** Stop audio, looping, and visual highlighting for the active preview. */
+        function stopPlayback() {
+            clearHighlights();
+            if (loopTimer) window.clearTimeout(loopTimer);
+            loopTimer = null;
+            if (activeAudioContext) activeAudioContext.close();
+            activeAudioContext = null;
+        }
+
+        /** Restart the current preview from the beginning. */
+        function replayGeneratedRiff() {
+            stopPlayback();
+            playGeneratedRiff();
+        }
+
+        // --- Tab highlighting -----------------------------------------------------
+        /** Clear all scheduled visual updates and remove active note styling. */
+        function clearHighlights() {
+            highlightTimers.forEach((timer) => window.clearTimeout(timer));
+            highlightTimers = [];
+            document.querySelectorAll('.tab-note.active').forEach((node) => node.classList.remove('active'));
+        }
+
+        /** Highlight one note at its scheduled playback time. */
+        function scheduleHighlight(noteIndex, startSeconds, durationSeconds) {
+            const noteElement = document.querySelector(`[data-note-index="${noteIndex}"]`);
+            if (!noteElement) return;
+            highlightTimers.push(window.setTimeout(() => {
+                document.querySelectorAll('.tab-note.active').forEach((node) => node.classList.remove('active'));
+                noteElement.classList.add('active');
+                noteElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }, startSeconds * 1000));
+            highlightTimers.push(window.setTimeout(() => noteElement.classList.remove('active'), (startSeconds + durationSeconds + 0.15) * 1000));
+        }
+
+        /** Rebuild the visual tab viewer from parsed tab lines and note events. */
+        function renderTabViewer() {
+            const viewer = document.getElementById('tab_viewer');
+            const labels = stringLabelsByInstrument[document.getElementById('instrument').value] || stringLabelsByInstrument.guitar;
+            viewer.innerHTML = '';
+            tabLines.forEach((line, lineIndex) => {
+                const row = document.createElement('div');
+                row.className = 'tab-line';
+                const label = document.createElement('span');
+                label.className = 'tab-string-label';
+                label.textContent = `${labels[lineIndex] || ''}|`;
+                row.appendChild(label);
+                let column = 0;
+                while (column < line.length) {
+                    const noteIndex = noteEvents.findIndex((note) => note.line === lineIndex && note.column === column);
+                    if (noteIndex >= 0) {
+                        const note = noteEvents[noteIndex];
+                        const span = document.createElement('span');
+                        span.className = 'tab-note';
+                        span.dataset.noteIndex = noteIndex;
+                        span.textContent = note.fret;
+                        row.appendChild(span);
+                        column += note.fret.length;
+                    } else {
+                        const span = document.createElement('span');
+                        span.textContent = line[column];
+                        row.appendChild(span);
+                        column += 1;
+                    }
+                }
+                viewer.appendChild(row);
+            });
+        }
+
+        // --- Export and saved-riff utilities -------------------------------------
+        /** Reflect the current tempo slider value in the transport label. */
+        function updateTempoLabel() {
+            document.getElementById('tempo_value').innerText = document.getElementById('tempo_slider').value;
+        }
+
+        /** Copy the preview-ready tab text to the clipboard. */
+        function copyTab() {
+            navigator.clipboard.writeText(currentPreviewTab || document.getElementById('guitar_tab').value);
+        }
+
+        /** Download the preview-ready tab as a plain text file. */
+        function downloadTab() {
+            const blob = new Blob([currentPreviewTab || document.getElementById('guitar_tab').value], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'riffedit-tab.txt';
+            link.click();
+        }
+
+        /** Submit a temporary form so Flask can generate and stream a MIDI file. */
+        function downloadMidi() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/download_midi';
+            const tab = document.createElement('textarea');
+            tab.name = 'preview_tab';
+            tab.value = currentPreviewTab || document.getElementById('guitar_tab').value;
+            const source = document.createElement('textarea');
+            source.name = 'guitar_tab';
+            source.value = document.getElementById('guitar_tab').value;
+            const instrument = document.createElement('input');
+            instrument.type = 'hidden';
+            instrument.name = 'instrument';
+            instrument.value = document.getElementById('instrument').value;
+            const step = document.createElement('input');
+            step.type = 'hidden';
+            step.name = 'step_duration';
+            step.value = document.getElementById('step_duration').value;
+            const duration = document.createElement('input');
+            duration.type = 'hidden';
+            duration.name = 'note_duration';
+            duration.value = document.getElementById('note_duration').value;
+            form.append(tab, source, instrument, step, duration);
+            document.body.appendChild(form);
+            form.submit();
+            form.remove();
+        }
+
+        /** Submit a temporary form so Flask can generate and stream MusicXML. */
+        function downloadMusicXml() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/download_musicxml';
+            const tab = document.createElement('textarea');
+            tab.name = 'preview_tab';
+            tab.value = currentPreviewTab || document.getElementById('guitar_tab').value;
+            const source = document.createElement('textarea');
+            source.name = 'guitar_tab';
+            source.value = document.getElementById('guitar_tab').value;
+            const instrument = document.createElement('input');
+            instrument.type = 'hidden';
+            instrument.name = 'instrument';
+            instrument.value = document.getElementById('instrument').value;
+            const step = document.createElement('input');
+            step.type = 'hidden';
+            step.name = 'step_duration';
+            step.value = document.getElementById('step_duration').value;
+            const duration = document.createElement('input');
+            duration.type = 'hidden';
+            duration.name = 'note_duration';
+            duration.value = document.getElementById('note_duration').value;
+            form.append(tab, source, instrument, step, duration);
+            document.body.appendChild(form);
+            form.submit();
+            form.remove();
+        }
+
+        /** Read saved riff sessions from localStorage. */
+        function getSavedRiffs() {
+            return JSON.parse(localStorage.getItem('riffedit:riffs') || '{}');
+        }
+
+        /** Write saved riff sessions and refresh the dropdown immediately. */
+        function setSavedRiffs(riffs) {
+            localStorage.setItem('riffedit:riffs', JSON.stringify(riffs));
+            refreshSavedRiffs();
+        }
+
+        /** Persist the current tab and transform controls as a named local session. */
+        function saveRiff() {
+            const name = document.getElementById('riff_name').value.trim() || `Riff ${new Date().toLocaleString()}`;
+            const riffs = getSavedRiffs();
+            riffs[name] = {
+                tab: document.getElementById('guitar_tab').value,
+                options: document.getElementById('options').value,
+                root: document.getElementById('root').value,
+                scale: document.getElementById('scale').value,
+                instrument: document.getElementById('instrument').value,
+                tuning: document.getElementById('tuning').value,
+                step_duration: document.getElementById('step_duration').value,
+                note_duration: document.getElementById('note_duration').value
+            };
+            setSavedRiffs(riffs);
+            document.getElementById('riff_name').value = name;
+        }
+
+        /** Restore a saved local session into the workbench controls. */
+        function loadRiff() {
+            const name = document.getElementById('saved_riffs').value;
+            const riff = getSavedRiffs()[name];
+            if (!riff) return;
+            document.getElementById('guitar_tab').value = riff.tab;
+            ['options', 'root', 'scale', 'instrument', 'tuning', 'step_duration', 'note_duration'].forEach((id) => {
+                if (riff[id]) document.getElementById(id).value = riff[id];
+            });
+            syncVoiceToInstrument();
+            document.getElementById('riff_name').value = name;
+        }
+
+        /** Remove the selected local session from browser storage. */
+        function deleteRiff() {
+            const name = document.getElementById('saved_riffs').value;
+            const riffs = getSavedRiffs();
+            delete riffs[name];
+            setSavedRiffs(riffs);
+        }
+
+        /** Rebuild the saved-riffs dropdown from localStorage keys. */
+        function refreshSavedRiffs() {
+            const select = document.getElementById('saved_riffs');
+            select.innerHTML = '';
+            Object.keys(getSavedRiffs()).sort().forEach((name) => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+
+        // --- Startup --------------------------------------------------------------
+        // Initialize labels and saved-session dropdown once the page controls exist.
+        window.addEventListener('DOMContentLoaded', () => {
+            updateSampleDescription();
+            updateTempoLabel();
+            syncVoiceToInstrument();
+            refreshSavedRiffs();
+        });
+    </script>
+</body>
 </html>

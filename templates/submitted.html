@@ -6,8 +6,15 @@
     <title>RiffEdit - Submission</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='CSS/stylesheet.css') }}">
     <script>
+        // Legacy submission helpers. The modern workbench handles these actions
+        // on the single page, but this route remains useful for old form posts.
+        function getOutputText() {
+            return document.getElementById('output_box').innerText;
+        }
+
+        // Save the generated tab text without needing a server-side file write.
         function saveToFile() {
-            const output = document.getElementById('output_box').innerText;
+            const output = getOutputText();
             const filename = prompt('Enter a name for your riff:', 'my_riff.txt');
             if (filename) {
                 const blob = new Blob([output], { type: 'text/plain' });
@@ -17,32 +24,40 @@
                 link.click();
             }
         }
+
+        // Copy the visible transformed guitar tab section to the clipboard.
+        function copyOutput() {
+            const output = document.getElementById('output_box').innerText;
+            navigator.clipboard.writeText(output);
+        }
     </script>
 </head>
 <body>
     <h1>RiffEdit - Submission</h1>
 
-    <!-- Display the guitar tab output -->
+    <!-- Display the transformed guitar tab output from Flask. -->
     <h2>Guitar Tab</h2>
     <pre id="output_box">{{ output.split('\n\nBass Tab (4-string):\n')[0] }}</pre>
 
-    <!-- If a bass riff was generated, display the bass tab -->
+    <!-- If a bass riff was generated, display the appended bass section. -->
     {% if instrument == 'bass_4_string' or instrument == 'bass_5_string' %}
         <h2>Bass Tab</h2>
         <pre>{{ output.split('\n\nBass Tab (4-string):\n')[-1] }}</pre>
     {% endif %}
 
-    <!-- Button to save the tab to a text file -->
+    <!-- Client-side quick actions for the visible output. -->
     <button onclick="saveToFile()">Save Tab as .txt</button>
+    <button type="button" onclick="copyOutput()">Copy Tab</button>
 
-    <!-- Form to play the generated MIDI file -->
-    <form method="POST" action="/play_midi">
-        <input type="hidden" name="guitar_tab" value="{{ song }}">
+    <!-- Carry both original input and preview-ready tab into the audio route. -->
+    <form method="POST" action="/play_audio">
+        <textarea name="guitar_tab" style="display: none;">{{ song }}</textarea>
+        <textarea name="preview_tab" style="display: none;">{{ preview_tab }}</textarea>
         <input type="hidden" name="instrument" value="{{ instrument }}">
-        <button type="submit">Play MIDI</button>
+        <button type="submit">Preview Sound</button>
     </form>
 
-    <!-- Form to allow another submission with the previous values retained -->
+    <!-- Legacy edit/resubmit form with previous values retained by Jinja. -->
     <form method="POST" action="/submit">
         <h3>Modify Your Input</h3>
 

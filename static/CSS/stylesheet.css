@@ -1,53 +1,454 @@
-/* Styling for the preformatted guitar tab output */
+/* ==========================================================================
+   Shared legacy elements
+   --------------------------------------------------------------------------
+   These defaults support the older submitted/playback templates and the modern
+   workbench output boxes. Later workbench rules intentionally refine them.
+   ========================================================================== */
+
 pre {
-    font-family: monospace;  /* Ensures uniform width for each character */
-    white-space: pre-wrap;   /* Preserves spaces and line breaks */
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    font-family: monospace;
+    max-width: 100%;
+    overflow-x: auto;
     padding: 10px;
-    border: 1px solid #ddd;  /* Light border around the output */
-    background-color: #f9f9f9; /* Light background for readability */
-    overflow-x: auto;        /* Adds horizontal scroll for long lines */
-    max-width: 100%;         /* Ensures it doesn’t exceed the width of the page */
+    white-space: pre-wrap;
 }
 
-/* Style for the form and textarea */
 textarea {
-    width: 100%;             /* Makes the textarea span the full width */
-    height: 200px;           /* Sets a fixed height for the input box */
+    height: 200px;
+    width: 100%;
 }
 
 select {
-    margin: 5px;             /* Adds spacing between dropdowns */
-    padding: 5px;            /* Adds some padding inside the dropdowns */
+    margin: 5px;
+    padding: 5px;
 }
 
 input[type="submit"] {
-    padding: 10px 15px;      /* Adds padding for the submit button */
-    background-color: #4CAF50; /* Button color */
-    color: white;            /* Text color */
-    border: none;            /* Removes borders */
-    cursor: pointer;         /* Shows pointer cursor on hover */
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 10px 15px;
 }
 
 input[type="submit"]:hover {
-    background-color: #45a049; /* Changes button color on hover */
+    background-color: #45a049;
 }
 
-/* Style the form */
-form {
-    margin-top: 20px;        /* Adds some space above the form */
+/* ==========================================================================
+   Input and saved-riff controls
+   --------------------------------------------------------------------------
+   Compact rows for sample generation and local browser-session management.
+   ========================================================================== */
+
+.sample-controls {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
 }
-/* Styling for the "New Riff" button */
-a.btn {
-    display: inline-block;
-    padding: 10px 15px;
-    background-color: #007BFF;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    margin-top: 20px;
+
+.session-controls {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.session-controls input,
+.session-controls select {
+    box-sizing: border-box;
+    min-height: 32px;
+}
+
+.session-controls input {
+    min-width: 180px;
+}
+
+.sample-controls select {
+    margin-left: 0;
+}
+
+.sample-description {
+    font-size: 0.95em;
+    margin-top: 0;
+}
+
+.sample-button {
+    margin-bottom: 0;
+}
+
+/* ==========================================================================
+   Preview transport and effects
+   --------------------------------------------------------------------------
+   Controls for playback, tempo, looping, voice selection, and Web Audio effects.
+   ========================================================================== */
+
+.transport-controls {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0 18px;
+}
+
+.effects-panel {
+    background: #171d17;
+    border: 1px solid #303d30;
+    border-radius: 6px;
+    color: #e8efe2;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    margin: 12px 0 18px;
+    padding: 12px;
+}
+
+.effects-panel label {
+    display: grid;
+    gap: 6px;
+}
+
+.effects-panel input[type="range"] {
+    width: 100%;
+}
+
+.transport-controls button,
+.tab-actions button {
     cursor: pointer;
+    padding: 8px 12px;
+}
+
+.transport-controls input[type="range"] {
+    width: 180px;
+}
+
+.loop-control {
+    align-items: center;
+    display: inline-flex;
+    gap: 5px;
+}
+
+/* ==========================================================================
+   Live tab viewer
+   --------------------------------------------------------------------------
+   Monospace rows mirror parsed tab text. Active note spans are toggled by JS
+   during playback, so fixed character sizing keeps highlights aligned.
+   ========================================================================== */
+
+.tab-preview {
+    margin-top: 20px;
+}
+
+.tab-viewer {
+    background: #111;
+    border: 1px solid #444;
+    color: #f6f6f6;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 16px;
+    line-height: 1.7;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 14px;
+    white-space: pre;
+}
+
+.tab-line {
+    min-width: max-content;
+}
+
+.tab-string-label {
+    color: #94d2ff;
+}
+
+.tab-note {
+    border-radius: 3px;
+    color: #ffdd7a;
+    display: inline-block;
+    min-width: 1ch;
+    text-align: center;
+}
+
+.tab-note.active {
+    background: #ffdd7a;
+    color: #111;
+    outline: 1px solid #fff4bf;
+}
+
+.tab-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+/* Legacy form/link helpers used by the older multi-page flow. */
+
+form {
+    margin-top: 20px;
+}
+
+a.btn {
+    background-color: #007BFF;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 15px;
+    text-decoration: none;
 }
 
 a.btn:hover {
     background-color: #0056b3;
+}
+
+/* ==========================================================================
+   Workbench layout
+   --------------------------------------------------------------------------
+   The main single-page app uses tab panels instead of separate Flask pages.
+   ========================================================================== */
+
+.workbench-page {
+    background: #ececec;
+}
+
+.workbench {
+    background: #fff;
+    border: 1px solid #d2d2d2;
+    margin: 24px auto;
+    max-width: 1120px;
+    padding: 22px;
+}
+
+.workbench-header h1 {
+    margin-bottom: 4px;
+}
+
+.tabs {
+    border-bottom: 1px solid #cfcfcf;
+    display: flex;
+    gap: 6px;
+    margin: 18px 0;
+}
+
+.tab-button {
+    background: #e9e9e9;
+    border: 1px solid #cfcfcf;
+    border-bottom: none;
+    cursor: pointer;
+    padding: 10px 14px;
+}
+
+.tab-button.active {
+    background: #222;
+    color: #fff;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.panel-heading {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.control-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    margin-bottom: 20px;
+}
+
+.control-grid label {
+    display: flex;
+    flex-direction: column;
+    font-weight: bold;
+}
+
+.control-grid select {
+    margin-left: 0;
+}
+
+#guitar_tab {
+    box-sizing: border-box;
+    font-family: Consolas, "Courier New", monospace;
+    min-height: 320px;
+}
+
+#output_box,
+#export_box {
+    min-height: 220px;
+}
+
+/* Keep the workflow usable on narrow screens by stacking crowded controls. */
+
+@media (max-width: 700px) {
+    .tabs {
+        flex-wrap: wrap;
+    }
+
+    .panel-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .workbench {
+        margin: 8px;
+        padding: 14px;
+    }
+}
+
+/* ==========================================================================
+   Workbench visual polish
+   --------------------------------------------------------------------------
+   These rules override the plain legacy defaults with the current product look.
+   ========================================================================== */
+
+.workbench-page {
+    background:
+        linear-gradient(180deg, rgba(18, 18, 18, 0.88), rgba(28, 30, 27, 0.94)),
+        url("../images/sheet-music.png");
+    background-attachment: fixed;
+    color: #1f241f;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.workbench {
+    border: 1px solid #2f3a31;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+}
+
+.workbench-header {
+    border-bottom: 1px solid #d6d8d1;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+}
+
+.workbench-header h1 {
+    color: #181d18;
+    font-size: 34px;
+    letter-spacing: 0;
+}
+
+.workbench-header p {
+    color: #536051;
+    margin: 0;
+}
+
+.tabs {
+    background: #20251f;
+    border: 1px solid #20251f;
+    border-radius: 6px;
+    gap: 0;
+    padding: 4px;
+}
+
+.tab-button {
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    color: #dfe5d7;
+    font-weight: bold;
+}
+
+.tab-button.active {
+    background: #d9f0c8;
+    color: #172017;
+}
+
+.tab-panel {
+    border: 1px solid #d8ddd1;
+    border-radius: 6px;
+    padding: 18px;
+}
+
+.panel-heading {
+    border-bottom: 1px solid #e2e4dc;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+}
+
+.panel-heading h2 {
+    margin: 0;
+}
+
+button,
+input[type="submit"] {
+    background: #263126;
+    border: 1px solid #263126;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: bold;
+    min-height: 34px;
+    padding: 8px 12px;
+}
+
+button:hover,
+input[type="submit"]:hover {
+    background: #3c4b39;
+}
+
+select,
+input[type="text"],
+textarea {
+    border: 1px solid #bfc7ba;
+    border-radius: 4px;
+    color: #1f241f;
+}
+
+select:focus,
+input[type="text"]:focus,
+textarea:focus {
+    border-color: #4f7f5a;
+    box-shadow: 0 0 0 2px rgba(79, 127, 90, 0.18);
+    outline: none;
+}
+
+#guitar_tab,
+#output_box,
+#export_box {
+    background: #fbfcf8;
+    border-color: #aeb8aa;
+}
+
+.sample-description {
+    color: #596255;
+}
+
+.transport-controls {
+    background: #f3f6ef;
+    border: 1px solid #d8ddd1;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.tab-viewer {
+    background: #0f120f;
+    border-color: #293329;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.tab-string-label {
+    color: #74c69d;
+}
+
+.tab-note {
+    color: #ffd166;
+}
+
+.tab-note.active {
+    background: #ffd166;
+    color: #10130f;
 }
